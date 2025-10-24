@@ -1,4 +1,4 @@
-# Neobot Workspace (neobot_ws)
+
 
 [![ROS 2](https://img.shields.io/badge/ROS-2-F44336?logo=ROS)](https://index.ros.org/doc/ros2/)
 
