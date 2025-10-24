@@ -1,0 +1,220 @@
+<?xml version="1.0" ?>
+<!--
+Author: Pradheep Padmanabhan
+Contributor: Adarsh Karan K P
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rox">
+<!-- This is the main URDF file for rox robot -->
+
+  <!-- Xacro Arguments-->
+  <xacro:arg name="use_gz" default="false"/>
+  <xacro:arg name="use_imu" default="false"/>
+  <xacro:arg name="use_d435" default="false"/>
+  <xacro:arg name="scanner_type" default="nanoscan"/>
+  <xacro:arg name="rox_type" default="argo"/>
+  <xacro:arg name="joint_type" default="fixed"/>
+
+  <!-- Manipulator Arguments-->
+  <xacro:arg name="arm_type" default=""/>
+  <xacro:arg name="arm_parent" default="cabinet_link"/>
+  <xacro:arg name="gripper_type" default=""/>
+  <xacro:arg name="use_ur_dc" default="false"/>
+  <xacro:arg name="force_abs_paths" default="false"/>
+  <xacro:arg name="simulation_controllers" default=""/>
+  <xacro:arg name="use_mock_hardware" default="false" />
+  <xacro:arg name="mock_sensor_commands" default="false" />
+
+  <xacro:arg name="include_arm_ros2_control" default="false"/>
+  <xacro:arg name="include_gripper_ros2_control" default="false"/>
+
+  <!-- Xacro Properties -->
+  <xacro:property name="gz" value="$(arg use_gz)"/>
+  <xacro:property name="imu" value="$(arg use_imu)"/>
+  <xacro:property name="d435" value="$(arg use_d435)"/>
+  <xacro:property name="scanner" value="$(arg scanner_type)"/>
+  <xacro:property name="rox_typ" value="$(arg rox_type)"/>
+  <xacro:property name="joint_typ" value="$(arg joint_type)"/>
+  <xacro:property name="arm" value="$(arg arm_type)"/>
+  <xacro:property name="ur_dc" value="$(arg use_ur_dc)"/>
+  <xacro:property name="gripper" value="$(arg gripper_type)"/>
+  <xacro:property name="use_mock" value="$(arg use_mock_hardware)"/>
+
+  <!-- Include xacro files -->
+  <xacro:include filename="$(find rox_description)/urdf/xacros/frame.xacro" />
+  
+  <!-- Nanoscan -->
+  <xacro:include filename="$(find rox_description)/urdf/xacros/sick_nanoscan.xacro" />
+
+  <!-- PSenScan -->
+  <xacro:include filename="$(find rox_description)/urdf/xacros/pilz_psenscan.xacro" />
+
+  <!-- Building the robot from here -->
+  <link name="base_link" />
+
+  <xacro:rox_base 
+    name="base_footprint"  
+    parent="base_link"
+    >
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:rox_base>
+
+  <!-- Argo drives -->
+  <xacro:if value="${rox_typ == 'argo'}">
+    <xacro:include filename="$(find rox_description)/urdf/xacros/argo_drive.xacro" />
+    <xacro:argo_drive parent="base_link"/>
+  </xacro:if>
+  <xacro:if value="${rox_typ == 'argo-trio'}">
+      <xacro:include filename="$(find rox_description)/urdf/xacros/argo_trio_drive.xacro" />
+      <xacro:argo_trio_drive parent="base_footprint"/>
+  </xacro:if>
+  
+  <!-- Diff drive -->
+  <!-- Includes both Trike and Diff -->
+  <xacro:if value="${rox_typ == 'diff'}">
+    <xacro:include filename="$(find rox_description)/urdf/xacros/diff_drive.xacro" />
+    <xacro:property name="wheel_separation" value="0.634" />
+    <xacro:diff_drive parent="base_link" wheel_separation="${wheel_separation}"/>
+  </xacro:if>
+
+  <!-- Trike drive -->
+  <xacro:if value="${rox_typ == 'trike'}">
+    <xacro:include filename="$(find rox_description)/urdf/xacros/trike_drive.xacro" />
+    <xacro:property name="wheel_separation" value="0.5955" />
+    <xacro:trike_drive parent="base_link" wheel_separation="${wheel_separation}"/>
+  </xacro:if>
+
+  <!-- Laser scanners -->
+
+  <!-- Nanoscans -->
+  <xacro:if value="${scanner == 'nanoscan'}">
+    <xacro:sick_nanoscan name="lidar_1" parent="base_link">
+      <origin rpy="${pi} 0 ${pi/4}" xyz="${0.2995} 0.269 0.189"/>
+    </xacro:sick_nanoscan>
+
+    <xacro:sick_nanoscan name="lidar_2" parent="base_link">
+      <origin rpy="${pi} 0 -${pi - pi/4}" xyz="-${0.2995} -0.269 0.189"/>
+    </xacro:sick_nanoscan>
+  </xacro:if>
+  
+  <!-- Pilz -->
+  <xacro:if value="${scanner == 'psenscan'}">
+    <xacro:pilz_psenscan name="lidar_1" parent="base_link">
+      <origin rpy="0 0 ${pi/4}" xyz="${0.3016} 0.2719 0.191"/>
+    </xacro:pilz_psenscan>
+
+    <xacro:pilz_psenscan name="lidar_2" parent="base_link">
+      <origin rpy="0 0 -${pi - pi/4}" xyz="-${0.3016} -0.2719 0.191"/>
+    </xacro:pilz_psenscan>
+  </xacro:if>
+
+  <!-- IMU -->
+  <xacro:if value="${imu == True}">
+    <link name="imu_link">
+      <inertial>
+        <mass value="0.001" />
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <inertia 
+          ixx="0.0001" 
+          ixy="0" 
+          ixz="0" 
+          iyy="0.000001" 
+          iyz="0" 
+          izz="0.0001"
+          />
+      </inertial>  
+    </link>
+    <joint name="imu_joint" type="fixed">
+      <axis xyz="0 1 0"/>
+      <origin rpy="0 0 0" xyz="-0.052 0.208 0.266"/>
+      <parent link="base_link"/>
+      <child link="imu_link"/>
+    </joint>
+  </xacro:if>
+
+  <!-- Realsense D435 -->
+  <xacro:if value="${d435 == True}">
+    <xacro:include filename="$(find realsense2_description)/urdf/_d435.urdf.xacro"/>
+    <!-- use_nominal_extrinsics is True for simulation-->
+    <xacro:sensor_d435 parent="base_link" name="d435_camera" use_nominal_extrinsics="true">
+      <origin xyz="0.375 0.0 0.220" rpy="0 0 0"/>
+    </xacro:sensor_d435>
+  </xacro:if>
+
+  <!-- arm -->
+  <xacro:unless value="${arm == ''}">
+
+    <!-- Include cabinet -->
+    <xacro:include filename="$(find rox_description)/urdf/xacros/cabinet.xacro" />
+    <xacro:cabinet name="cabinet" parent="base_footprint">
+      <origin rpy="0 0 0" xyz="0 0 0.33"/>
+    </xacro:cabinet>
+
+    <!-- Universal Robotics (UR) Arms-->
+    <xacro:if value="${arm == 'ur5' or arm == 'ur10' or arm == 'ur5e' or arm == 'ur10e'}">
+
+      <!-- Different height for AC arm-->
+      <xacro:if value="${ur_dc == False}">
+        <xacro:property name="arm_height" value="0.376" />
+      </xacro:if>
+
+      <xacro:if value="${ur_dc == True}">
+        <xacro:property name="arm_height" value="0.276" />
+      </xacro:if>
+      
+      <!-- Include the UR arm -->
+      <xacro:include filename="$(find rox_description)/urdf/xacros/ur_arm.urdf.xacro"/>
+    </xacro:if>
+
+    <!-- Elite Arms-->
+    <xacro:if value="${arm == 'ec66' or arm == 'cs66'}">
+      <xacro:property name="arm_height" value="0.376" />
+      <xacro:include filename="$(find rox_description)/urdf/xacros/elite_arm.urdf.xacro"/>
+    </xacro:if>
+
+    <!-- add gripper-->
+    <xacro:unless value="${gripper == ''}">
+
+      <!-- ur_adapter for gripper-->
+      <xacro:if value="${gripper == '2f_140' or gripper == '2f_85'}">
+        <xacro:include filename="$(find robotiq_description)/urdf/ur_to_robotiq_adapter.urdf.xacro"/>
+        <xacro:ur_to_robotiq 
+          prefix="" 
+          parent="$(arg tf_prefix)tool0"
+          child="neo_gripper_mount_link"
+          rotation="${pi/2}"
+          />
+
+        <xacro:include filename="$(find robotiq_description)/urdf/robotiq_${gripper}_macro.urdf.xacro"/>
+        <xacro:robotiq_gripper name="robotiq_gripper"
+          prefix=""
+          parent="neo_gripper_mount_link"
+          use_mock_hardware="${use_mock}"
+          mock_sensor_commands="${use_mock}"
+          sim_gazebo="${gz}"
+          include_ros2_control="$(arg include_gripper_ros2_control)"
+          >
+          <origin xyz="0 0 0" rpy="0 0 -${pi / 2}"/>
+        </xacro:robotiq_gripper>
+
+      </xacro:if>
+
+      <xacro:if value="${gripper == 'epick'}">
+        <xacro:include filename="$(find epick_description)/urdf/epick_single_suction_cup.xacro"/>
+        <xacro:epick_single_suction_cup parent="$(arg tf_prefix)tool0"
+          use_fake_hardware="${use_mock}"
+          origin_xyz="0 0 0"
+          origin_rpy="0 0 -${pi / 2}"
+          />
+      </xacro:if>
+
+    </xacro:unless>
+
+  </xacro:unless>
+
+  <!-- Check if simulation needs to be used -->
+  <xacro:if value="${gz == True}">
+    <xacro:include filename="$(find rox_description)/urdf/xacros/gazebo.xacro" />
+    <xacro:gazebo_plugins />
+  </xacro:if>
+
+</robot>
